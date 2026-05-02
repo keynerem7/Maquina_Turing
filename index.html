@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Máquina de Turing — aⁿbⁿcⁿ</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e17;
+  --surface: #111827;
+  --surface2: #1a2235;
+  --border: #1e2d45;
+  --accent: #00d4ff;
+  --accent2: #7c3aed;
+  --accent3: #10b981;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --text: #e2e8f0;
+  --text2: #64748b;
+  --text3: #94a3b8;
+  --mono: 'Space Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scanlines effect */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.header-eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  opacity: .8;
+}
+
+.header-title {
+  font-family: var(--mono);
+  font-size: clamp(22px, 4vw, 38px);
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -.01em;
+  margin-bottom: 6px;
+}
+
+.header-title span {
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(0,212,255,.5);
+}
+
+.header-sub {
+  font-size: 13px;
+  color: var(--text2);
+  font-weight: 300;
+}
+
+/* Layout */
+.layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+
+.card-header .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,100% { opacity: 1; } 50% { opacity: .4; }
+}
+
+.card-header .dot.green { background: var(--accent3); box-shadow: 0 0 8px var(--accent3); }
+.card-header .dot.purple { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+
+.card-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-weight: 400;
+}
+
+.card-body { padding: 16px; }
+
+/* Transition table */
+.trans-table {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trans-group-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--accent);
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  padding: 8px 0 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+  opacity: .7;
+}
+
+.trans-row {
+  display: grid;
+  grid-template-columns: 90px 28px 28px 24px 52px 1fr;
+  gap: 0;
+  align-items: center;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition: all .2s;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.trans-row.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(0,212,255,.2);
+}
+
+.trans-row.accept { border-color: var(--accent3); box-shadow: 0 0 12px rgba(16,185,129,.2); }
+.trans-row.reject { border-color: var(--danger); box-shadow: 0 0 12px rgba(239,68,68,.2); }
+
+.tc {
+  padding: 5px 6px;
+  background: var(--surface2);
+  color: var(--text3);
+  border-right: 1px solid var(--border);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.tc:last-child { border-right: none; }
+.trans-row.active .tc { background: rgba(0,212,255,.08); color: var(--accent); }
+.trans-row.accept .tc { background: rgba(16,185,129,.08); color: var(--accent3); }
+.trans-row.reject .tc { background: rgba(239,68,68,.08); color: var(--danger); }
+
+.tc.key { color: var(--text); font-weight: 700; }
+.tc.sym { color: var(--warn); justify-content: center; }
+.tc.write { color: var(--accent3); justify-content: center; }
+.tc.dir { color: var(--accent2); justify-content: center; font-size: 9px; }
+.tc.next { color: var(--accent); }
+.tc.desc { font-family: var(--sans); font-size: 9px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Right column */
+.right-col { display: flex; flex-direction: column; gap: 16px; }
+
+/* Input area */
+.input-section { padding: 16px; }
+
+.input-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text2);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.tape-input {
+  font-family: var(--mono);
+  font-size: 16px;
+  padding: 8px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--accent);
+  width: 180px;
+  letter-spacing: .1em;
+  outline: none;
+  transition: border-color .2s;
+}
+
+.tape-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,212,255,.1); }
+
+.presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.preset-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 5px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text3);
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+.preset-btn.invalid { border-color: rgba(239,68,68,.3); color: rgba(239,68,68,.7); }
+.preset-btn.invalid:hover { border-color: var(--danger); color: var(--danger); }
+
+/* Controls */
+.controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.btn {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  transition: all .15s;
+  font-weight: 700;
+  letter-spacing: .05em;
+}
+
+.btn:hover { background: var(--surface); border-color: var(--text3); }
+.btn:disabled { opacity: .35; cursor: not-allowed; }
+.btn:active:not(:disabled) { transform: scale(.97); }
+
+.btn-primary {
+  background: rgba(0,212,255,.1);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 16px rgba(0,212,255,.15);
+}
+.btn-primary:hover { background: rgba(0,212,255,.2); }
+
+.btn-run {
+  background: rgba(124,58,237,.1);
+  border-color: var(--accent2);
+  color: var(--accent2);
+}
+.btn-run:hover { background: rgba(124,58,237,.2); }
+.btn-run.running { background: rgba(245,158,11,.1); border-color: var(--warn); color: var(--warn); }
+
+.btn-reset {
+  background: rgba(239,68,68,.08);
+  border-color: rgba(239,68,68,.3);
+  color: rgba(239,68,68,.8);
+}
+.btn-reset:hover { background: rgba(239,68,68,.15); border-color: var(--danger); color: var(--danger); }
+
+.speed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.speed-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text2);
+  width: 55px;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100px;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.speed-val {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  width: 40px;
+}
+
+/* State display */
+.state-display {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.state-circle {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  border: 2px solid var(--border);
+  background: var(--surface2);
+  color: var(--text3);
+  flex-shrink: 0;
+  transition: all .3s;
+  position: relative;
+}
+
+.state-circle::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  transition: all .3s;
+}
+
+.state-circle.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0,212,255,.08);
+  box-shadow: 0 0 20px rgba(0,212,255,.3);
+}
+.state-circle.active::after { border-color: rgba(0,212,255,.2); }
+
+.state-circle.ok {
+  border-color: var(--accent3);
+  color: var(--accent3);
+  background: rgba(16,185,129,.08);
+  box-shadow: 0 0 20px rgba(16,185,129,.3);
+}
+
+.state-circle.err {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(239,68,68,.08);
+  box-shadow: 0 0 20px rgba(239,68,68,.3);
+}
+
+.state-info { flex: 1; }
+.state-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.state-desc {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.5;
+}
+
+.step-counter {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text2);
+  padding: 4px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* Tape */
+.tape-section { padding: 16px; }
+
+.tape-indicators {
+  display: flex;
+  gap: 4px;
+  padding: 0 0 0 4px;
+  margin-bottom: 2px;
+  overflow-x: auto;
+}
+
+.ti { width: 44px; flex-shrink: 0; display: flex; justify-content: center; font-size: 11px; color: transparent; font-family: var(--mono); }
+.ti.active { color: var(--accent); animation: bounce .6s ease-in-out infinite alternate; }
+
+@keyframes bounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-3px); }
+}
+
+.tape-track {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 4px 0 12px;
+}
+
+.tape-track::-webkit-scrollbar { height: 4px; }
+.tape-track::-webkit-scrollbar-track { background: var(--surface2); border-radius: 2px; }
+.tape-track::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.cell {
+  width: 44px; height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text3);
+  flex-shrink: 0;
+  transition: all .2s;
+  position: relative;
+}
+
+.cell.head {
+  border-color: var(--accent);
+  background: rgba(0,212,255,.1);
+  color: var(--accent);
+  box-shadow: 0 0 16px rgba(0,212,255,.25);
+  transform: scale(1.08);
+}
+
+.cell.marked-x { border-color: rgba(239,68,68,.4); background: rgba(239,68,68,.08); color: #f87171; }
+.cell.marked-y { border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.08); color: var(--warn); }
+.cell.marked-z { border-color: rgba(124,58,237,.4); background: rgba(124,58,237,.08); color: #a78bfa; }
+.cell.blank { color: var(--border); font-size: 12px; }
+
+.tape-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text2);
+  font-family: var(--mono);
+}
+
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 3px;
+  border: 1px solid;
+}
+
+/* History */
+.hist-section { padding: 0 16px 16px; }
+
+.hist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.hist-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text2);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.hist-clear {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text2);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color .15s;
+}
+.hist-clear:hover { color: var(--danger); }
+
+.hist-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.hist-box::-webkit-scrollbar { width: 4px; }
+.hist-box::-webkit-scrollbar-track { background: transparent; }
+.hist-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.hist-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text2);
+  font-size: 11px;
+  font-family: var(--sans);
+}
+
+.hrow {
+  display: grid;
+  grid-template-columns: 28px 38px 22px 70px 1fr;
+  align-items: center;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  gap: 6px;
+  transition: background .15s;
+}
+
+.hrow:last-child { border-bottom: none; }
+.hrow:hover { background: rgba(255,255,255,.02); }
+
+.hrow.fin-ok { background: rgba(16,185,129,.07); }
+.hrow.fin-err { background: rgba(239,68,68,.07); }
+
+.hnum { color: var(--text2); font-size: 10px; }
+.hstate { color: var(--accent); font-weight: 700; font-size: 10px; }
+.hread { color: var(--warn); text-align: center; }
+.hnext { color: var(--accent2); font-size: 10px; font-weight: 700; }
+.hdesc { color: var(--text2); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hok { color: var(--accent3); font-weight: 700; }
+.herr { color: var(--danger); font-weight: 700; }
+
+.hrow-full {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Result banner */
+.result-banner {
+  display: none;
+  margin: 0 16px 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: .03em;
+}
+
+.result-banner.ok {
+  display: flex;
+  background: rgba(16,185,129,.1);
+  border: 1px solid rgba(16,185,129,.3);
+  color: var(--accent3);
+  box-shadow: 0 0 20px rgba(16,185,129,.1);
+}
+
+.result-banner.err {
+  display: flex;
+  background: rgba(239,68,68,.1);
+  border: 1px solid rgba(239,68,68,.3);
+  color: var(--danger);
+  box-shadow: 0 0 20px rgba(239,68,68,.1);
+}
+
+.result-icon { font-size: 20px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-eyebrow">Teoría de la Computación · Actividad 4</div>
+    <div class="header-title">Máquina de Turing <span>aⁿbⁿcⁿ</span></div>
+    <div class="header-sub">Simulador interactivo — Verificación del lenguaje formal L = { aⁿbⁿcⁿ | n ≥ 1 }</div>
+  </div>
+
+  <div class="layout">
+
+    <!-- LEFT: Transition Table -->
+    <div class="card">
+      <div class="card-header">
+        <div class="dot purple"></div>
+        <span class="card-title">Tabla de transiciones</span>
+      </div>
+      <div class="card-body" style="padding:12px">
+
+        <div style="display:grid;grid-template-columns:90px 28px 28px 24px 52px 1fr;gap:0;margin-bottom:6px;padding:0 0 4px;border-bottom:1px solid var(--border)">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text2);letter-spacing:.1em;text-transform:uppercase;padding:0 6px">Estado+Lee</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text2);text-align:center">Escr</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text2);text-align:center">Dir</div>
+          <div></div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text2)">Nuevo</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text2)">Descripción</div>
+        </div>
+
+        <div class="trans-table" id="trans-table"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-col">
+
+      <!-- Input + Controls -->
+      <div class="card">
+        <div class="card-header">
+          <div class="dot"></div>
+          <span class="card-title">Control</span>
+        </div>
+
+        <div class="input-section">
+          <div class="input-label">Cadena de entrada</div>
+          <div class="input-row">
+            <input type="text" class="tape-input" id="inp" value="aabbcc" placeholder="ej: aabbcc">
+            <div class="presets">
+              <button class="preset-btn" onclick="preset('abc')">abc</button>
+              <button class="preset-btn" onclick="preset('aabbcc')">aabbcc</button>
+              <button class="preset-btn" onclick="preset('aaabbbccc')">aaabbbccc</button>
+              <button class="preset-btn invalid" onclick="preset('aabbc')">aabbc ✗</button>
+              <button class="preset-btn invalid" onclick="preset('aabb')">aabb ✗</button>
+              <button class="preset-btn invalid" onclick="preset('abbc')">abbc ✗</button>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="btn btn-primary" id="bstep" onclick="step()">▶ PASO</button>
+            <button class="btn btn-run" id="brun" onclick="toggleRun()">▷ EJECUTAR</button>
+            <button class="btn btn-reset" onclick="reset()">↺ REINICIAR</button>
+          </div>
+
+          <div class="speed-row">
+            <span class="speed-label">Velocidad</span>
+            <input type="range" id="spd" min="80" max="900" value="500" step="50" oninput="onSpd()">
+            <span class="speed-val" id="spdlbl">normal</span>
+          </div>
+        </div>
+
+        <!-- State display -->
+        <div style="border-top:1px solid var(--border)">
+          <div class="state-display">
+            <div class="state-circle" id="scircle">q0</div>
+            <div class="state-info">
+              <div class="state-name" id="sname">q0 — Buscador de A's</div>
+              <div class="state-desc" id="sdesc">Busca la siguiente "a" sin marcar para iniciar un ciclo.</div>
+            </div>
+            <div class="step-counter" id="stepctr">Paso 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tape -->
+      <div class="card">
+        <div class="card-header">
+          <div class="dot green"></div>
+          <span class="card-title">Cinta de memoria</span>
+        </div>
+        <div class="tape-section">
+          <div class="tape-indicators" id="tape-ind"></div>
+          <div class="tape-track" id="tape-track"></div>
+          <div class="tape-legend">
+            <div class="legend-item">
+              <div class="legend-dot" style="background:rgba(0,212,255,.1);border-color:var(--accent)"></div>
+              cabezal activo
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.4)"></div>
+              X = a marcada
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.4)"></div>
+              Y = b marcada
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background:rgba(124,58,237,.08);border-color:rgba(124,58,237,.4)"></div>
+              Z = c marcada
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Result banner -->
+      <div class="result-banner" id="result-banner">
+        <span class="result-icon" id="result-icon"></span>
+        <span id="result-text"></span>
+      </div>
+
+      <!-- History -->
+      <div class="card">
+        <div class="card-header">
+          <div class="dot" style="background:var(--warn);box-shadow:0 0 8px var(--warn)"></div>
+          <span class="card-title">Historial de pasos</span>
+        </div>
+        <div class="hist-section">
+          <div class="hist-header">
+            <span class="hist-label">Registro de transiciones ejecutadas</span>
+            <button class="hist-clear" onclick="clearHist()">limpiar</button>
+          </div>
+          <div class="hist-box" id="hist">
+            <div class="hist-empty">Presiona "Paso" o "Ejecutar" para comenzar.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const B = '□';
+
+const STATE_INFO = {
+  q0: { name: "q0 — Buscador de A's",    desc: 'Inicio de cada ciclo. Busca la siguiente "a" sin marcar en la cinta.', cls: 'active' },
+  q1: { name: "q1 — Buscador de B's",    desc: 'Marcó una "a". Avanza a la derecha buscando una "b" para emparejar.', cls: 'active' },
+  q2: { name: "q2 — Buscador de C's",    desc: 'Marcó una "b". Avanza a la derecha buscando una "c" para emparejar.', cls: 'active' },
+  q3: { name: "q3 — Retroceso al inicio",desc: 'Marcó una "c". Retrocede a la izquierda para iniciar el siguiente ciclo.', cls: 'active' },
+  q4: { name: "q4 — Verificación final", desc: 'No quedan "a". Verifica que tampoco queden "b" ni "c" sin marcar.', cls: 'active' },
+  qA: { name: "qA — ACEPTA ✓",           desc: 'La cadena tiene exactamente el mismo número de a, b y c. Es válida.', cls: 'ok' },
+  qR: { name: "qR — RECHAZA ✗",          desc: 'Se detectó una inconsistencia. La cadena no pertenece al lenguaje.', cls: 'err' },
+};
+
+const T = [
+  { f:'q0', r:'a', w:'X', m:1,  t:'q1', d:'Marca "a"→X, busca "b"' },
+  { f:'q0', r:'X', w:'X', m:1,  t:'q0', d:'Salta X (a marcada)' },
+  { f:'q0', r:'Y', w:'Y', m:1,  t:'q4', d:'No quedan "a" → verifica fin' },
+  { f:'q0', r:B,   w:B,  m:1,  t:'qA', d:'Cinta vacía → ACEPTA' },
+  { f:'q1', r:'a', w:'a', m:1,  t:'q1', d:'Salta "a" sin marcar' },
+  { f:'q1', r:'X', w:'X', m:1,  t:'q1', d:'Salta X' },
+  { f:'q1', r:'Y', w:'Y', m:1,  t:'q1', d:'Salta Y (b marcada)' },
+  { f:'q1', r:'b', w:'Y', m:1,  t:'q2', d:'Marca "b"→Y, busca "c"' },
+  { f:'q1', r:'c', w:'c', m:1,  t:'qR', d:'"c" antes de "b" → RECHAZA' },
+  { f:'q1', r:B,   w:B,  m:1,  t:'qR', d:'Sin "b" disponible → RECHAZA' },
+  { f:'q2', r:'b', w:'b', m:1,  t:'q2', d:'Salta "b" sin marcar' },
+  { f:'q2', r:'Y', w:'Y', m:1,  t:'q2', d:'Salta Y' },
+  { f:'q2', r:'Z', w:'Z', m:1,  t:'q2', d:'Salta Z (c marcada)' },
+  { f:'q2', r:'c', w:'Z', m:-1, t:'q3', d:'Marca "c"→Z, inicia retroceso' },
+  { f:'q2', r:B,   w:B,  m:1,  t:'qR', d:'Sin "c" disponible → RECHAZA' },
+  { f:'q3', r:'a', w:'a', m:-1, t:'q3', d:'Retrocediendo: salta "a"' },
+  { f:'q3', r:'b', w:'b', m:-1, t:'q3', d:'Retrocediendo: salta "b"' },
+  { f:'q3', r:'X', w:'X', m:-1, t:'q3', d:'Retrocediendo: salta X' },
+  { f:'q3', r:'Y', w:'Y', m:-1, t:'q3', d:'Retrocediendo: salta Y' },
+  { f:'q3', r:'Z', w:'Z', m:-1, t:'q3', d:'Retrocediendo: salta Z' },
+  { f:'q3', r:B,   w:B,  m:1,  t:'q0', d:'Borde izquierdo → nuevo ciclo' },
+  { f:'q4', r:'Y', w:'Y', m:1,  t:'q4', d:'Salta Y (b marcada)' },
+  { f:'q4', r:'Z', w:'Z', m:1,  t:'q4', d:'Salta Z (c marcada)' },
+  { f:'q4', r:B,   w:B,  m:1,  t:'qA', d:'Solo marcas → ACEPTA' },
+  { f:'q4', r:'b', w:'b', m:1,  t:'qR', d:'Queda "b" sin marcar → RECHAZA' },
+  { f:'q4', r:'c', w:'c', m:1,  t:'qR', d:'Queda "c" sin marcar → RECHAZA' },
+];
+
+const tmap = {};
+T.forEach((r, i) => { tmap[r.f + '|' + r.r] = { ...r, i }; });
+
+const GROUPS = [
+  { label: 'q0 — Buscador de A\'s', keys: ['q0|a','q0|X','q0|Y','q0|□'] },
+  { label: 'q1 — Buscador de B\'s', keys: ['q1|a','q1|X','q1|Y','q1|b','q1|c','q1|□'] },
+  { label: 'q2 — Buscador de C\'s', keys: ['q2|b','q2|Y','q2|Z','q2|c','q2|□'] },
+  { label: 'q3 — Retroceso',        keys: ['q3|a','q3|b','q3|X','q3|Y','q3|Z','q3|□'] },
+  { label: 'q4 — Verificación',     keys: ['q4|Y','q4|Z','q4|□','q4|b','q4|c'] },
+];
+
+let tape=[], head=0, state='q0', steps=0, done=false, running=false, timer=null;
+
+function buildTable() {
+  const el = document.getElementById('trans-table');
+  el.innerHTML = '';
+  GROUPS.forEach(g => {
+    const sep = document.createElement('div');
+    sep.className = 'trans-group-label';
+    sep.textContent = g.label;
+    el.appendChild(sep);
+    g.keys.forEach(k => {
+      const r = tmap[k]; if (!r) return;
+      const row = document.createElement('div');
+      row.className = 'trans-row';
+      row.id = 'tr' + r.i;
+      const isFinal = r.t === 'qA' || r.t === 'qR';
+      row.innerHTML = `
+        <div class="tc key">${r.f} + "${r.r}"</div>
+        <div class="tc sym write">${r.w}</div>
+        <div class="tc dir">${r.m === 1 ? 'D' : 'I'}</div>
+        <div class="tc" style="justify-content:center;color:var(--text2);font-size:9px">→</div>
+        <div class="tc next">${r.t}</div>
+        <div class="tc desc">${r.d}</div>
+      `;
+      el.appendChild(row);
+    });
+  });
+}
+
+function highlightRule(idx) {
+  document.querySelectorAll('.trans-row').forEach(r => r.className = 'trans-row');
+  if (idx < 0) return;
+  const el = document.getElementById('tr' + idx);
+  if (!el) return;
+  const rule = T[idx];
+  el.className = 'trans-row ' + (rule.t === 'qA' ? 'accept' : rule.t === 'qR' ? 'reject' : 'active');
+  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function preset(s) { document.getElementById('inp').value = s; reset(); }
+
+function init() {
+  const s = document.getElementById('inp').value.trim() || 'a';
+  tape = [B, B, ...s.split(''), B, B];
+  head = 2; state = 'q0'; steps = 0; done = false;
+  document.getElementById('hist').innerHTML = '<div class="hist-empty">Presiona "Paso" o "Ejecutar" para comenzar.</div>';
+  document.getElementById('result-banner').className = 'result-banner';
+  renderTape(); renderState(); highlightRule(-1);
+  document.getElementById('bstep').disabled = false;
+}
+
+function reset() { if (running) toggleRun(); init(); }
+
+function renderTape() {
+  const track = document.getElementById('tape-track');
+  const ind = document.getElementById('tape-ind');
+  track.innerHTML = ''; ind.innerHTML = '';
+  tape.forEach((s, i) => {
+    const cell = document.createElement('div');
+    let cls = 'cell';
+    if (i === head) cls += ' head';
+    else if (s === 'X') cls += ' marked-x';
+    else if (s === 'Y') cls += ' marked-y';
+    else if (s === 'Z') cls += ' marked-z';
+    else if (s === B) cls += ' blank';
+    cell.className = cls;
+    cell.textContent = s;
+    track.appendChild(cell);
+
+    const ti = document.createElement('div');
+    ti.className = 'ti' + (i === head ? ' active' : '');
+    ti.textContent = '▲';
+    ind.appendChild(ti);
+  });
+
+  // scroll head into view
+  const cells = track.querySelectorAll('.cell');
+  if (cells[head]) cells[head].scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' });
+}
+
+function renderState() {
+  const info = STATE_INFO[state] || { name: state, desc: '', cls: '' };
+  const sc = document.getElementById('scircle');
+  sc.textContent = state;
+  sc.className = 'state-circle ' + (info.cls || '');
+  document.getElementById('sname').textContent = info.name;
+  document.getElementById('sdesc').textContent = info.desc;
+  document.getElementById('stepctr').textContent = 'Paso ' + steps;
+  document.getElementById('bstep').disabled = done;
+}
+
+function addHist(stepN, st, sym, rule, final) {
+  const h = document.getElementById('hist');
+  const empty = h.querySelector('.hist-empty');
+  if (empty) h.removeChild(empty);
+
+  const row = document.createElement('div');
+
+  if (final === 'ok') {
+    row.className = 'hrow-full fin-ok';
+    row.innerHTML = `<span class="hok">✓ ACEPTA — la cadena pertenece al lenguaje aⁿbⁿcⁿ</span>`;
+  } else if (final === 'err') {
+    row.className = 'hrow-full fin-err';
+    row.innerHTML = `<span class="herr">✗ RECHAZA — la cadena no pertenece al lenguaje aⁿbⁿcⁿ</span>`;
+  } else {
+    row.className = 'hrow';
+    const dir = rule.m === 1 ? '→D' : '←I';
+    row.innerHTML = `
+      <span class="hnum">${stepN}</span>
+      <span class="hstate">${st}</span>
+      <span class="hread">"${sym}"</span>
+      <span class="hnext">${dir} ${rule.t}</span>
+      <span class="hdesc">${rule.d}</span>
+    `;
+  }
+
+  h.appendChild(row);
+  h.scrollTop = h.scrollHeight;
+}
+
+function showResult(ok) {
+  const b = document.getElementById('result-banner');
+  b.className = 'result-banner ' + (ok ? 'ok' : 'err');
+  document.getElementById('result-icon').textContent = ok ? '✓' : '✗';
+  document.getElementById('result-text').textContent = ok
+    ? 'ACEPTA — La cadena tiene exactamente el mismo número de a, b y c.'
+    : 'RECHAZA — La cadena no pertenece al lenguaje aⁿbⁿcⁿ.';
+}
+
+function clearHist() {
+  document.getElementById('hist').innerHTML = '<div class="hist-empty">Historial limpiado.</div>';
+}
+
+function step() {
+  if (done) return;
+  steps++;
+  const sym = tape[head] !== undefined ? tape[head] : B;
+  const key = state + '|' + sym;
+  const rule = tmap[key];
+  const prevState = state;
+
+  if (!rule) {
+    done = true; if (running) toggleRun();
+    addHist(steps, state, sym, null, 'err');
+    state = 'qR'; renderState(); highlightRule(-1); showResult(false); return;
+  }
+
+  tape[head] = rule.w;
+  state = rule.t;
+  head += rule.m;
+  if (head < 0) { tape.unshift(B, B); head = 1; }
+  if (head >= tape.length) { tape.push(B, B); }
+
+  addHist(steps, prevState, sym, rule, null);
+  highlightRule(rule.i);
+
+  if (state === 'qA') {
+    done = true; if (running) toggleRun();
+    addHist('', '', '', null, 'ok');
+    showResult(true);
+  } else if (state === 'qR') {
+    done = true; if (running) toggleRun();
+    addHist('', '', '', null, 'err');
+    showResult(false);
+  }
+
+  renderTape(); renderState();
+}
+
+function toggleRun() {
+  running = !running;
+  const btn = document.getElementById('brun');
+  btn.textContent = running ? '⏸ PAUSAR' : '▷ EJECUTAR';
+  btn.className = 'btn btn-run' + (running ? ' running' : '');
+  if (running) {
+    const spd = 950 - parseInt(document.getElementById('spd').value);
+    timer = setInterval(() => { if (done) toggleRun(); else step(); }, spd);
+  } else {
+    clearInterval(timer);
+  }
+}
+
+function onSpd() {
+  const v = parseInt(document.getElementById('spd').value);
+  document.getElementById('spdlbl').textContent = v < 300 ? 'lento' : v > 700 ? 'rápido' : 'normal';
+  if (running) {
+    clearInterval(timer);
+    const spd = 950 - v;
+    timer = setInterval(() => { if (done) toggleRun(); else step(); }, spd);
+  }
+}
+
+buildTable();
+init();
+</script>
+</body>
+</html>
